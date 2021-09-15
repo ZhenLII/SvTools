@@ -1,6 +1,7 @@
 import org.junit.Assert;
 import org.junit.Test;
 
+import java.util.ArrayList;
 import java.util.List;
 
 /**
@@ -18,6 +19,17 @@ public class ListUtilsTest {
         Assert.assertEquals(7, res1.size());
         for (int i = 0; i < integers1.size(); i++) {
             Assert.assertEquals(integers1.get(i), res1.get(i / 3).get(i % 3));
+        }
+
+
+        List<Integer> integers2 = new ArrayList<>();
+        for(int i=0;i<9999;i++) {
+            integers2.add(i);
+        }
+        List<List<Integer>> res4 = ListUtils.splitList(integers2, 999);
+        Assert.assertEquals(11, res4.size());
+        for (int i = 0; i < integers2.size(); i++) {
+            Assert.assertEquals(integers2.get(i), res4.get(i / 999).get(i % 999));
         }
 
         // 分片大小小于等于0
