@@ -46,11 +46,13 @@ public class RSAUtilsTest {
             String cipherText = RSAUtils.encryptToBase64(plainText, keyPair.getPublic());
             byte[] cipherBytes = RSAUtils.encryptToBytes(plainText, keyPair.getPublic());
 
-            String strAfterDecript = RSAUtils.decryptToStringFromBase64(cipherText, keyPair.getPrivate());
+            String strAfterDecript1 = RSAUtils.decryptToStringFromBase64(cipherText, keyPair.getPrivate());
+            String strAfterDecript2 = RSAUtils.decryptToStringFromBytes(cipherBytes,keyPair.getPrivate());
             byte[] bytesAfterDecript1 = RSAUtils.decryptToBytesFromBase64(cipherText, keyPair.getPrivate());
             byte[] bytesAfterDecript2 = RSAUtils.decryptToBytesFromBytes(cipherBytes, keyPair.getPrivate());
 
-            Assert.assertEquals(plainText, strAfterDecript);
+            Assert.assertEquals(plainText, strAfterDecript1);
+            Assert.assertEquals(plainText, strAfterDecript2);
             Assert.assertArrayEquals(plainBytes, bytesAfterDecript1);
             Assert.assertArrayEquals(plainBytes, bytesAfterDecript2);
         } catch (GeneralSecurityException e) {
