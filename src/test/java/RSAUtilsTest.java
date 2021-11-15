@@ -1,8 +1,8 @@
 import org.junit.Assert;
 import org.junit.Test;
-import sun.nio.cs.UTF_8;
 
 import java.io.IOException;
+import java.nio.charset.StandardCharsets;
 import java.security.*;
 
 /**
@@ -41,7 +41,7 @@ public class RSAUtilsTest {
 
     private void testEncriptAndDecript(KeyPair keyPair) {
         String plainText = "Test Message";
-        byte[] plainBytes = plainText.getBytes(UTF_8.INSTANCE);
+        byte[] plainBytes = plainText.getBytes(StandardCharsets.UTF_8);
         try {
             String cipherText = RSAUtils.encryptToBase64(plainText, keyPair.getPublic());
             byte[] cipherBytes = RSAUtils.encryptToBytes(plainText, keyPair.getPublic());

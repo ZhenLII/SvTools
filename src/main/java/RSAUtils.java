@@ -1,6 +1,6 @@
-import sun.nio.cs.UTF_8;
 
 import javax.crypto.Cipher;
+import java.nio.charset.StandardCharsets;
 import java.security.*;
 import java.security.spec.PKCS8EncodedKeySpec;
 import java.security.spec.X509EncodedKeySpec;
@@ -49,7 +49,7 @@ public class RSAUtils {
     public static String encryptToBase64(String plainText, PublicKey publicKey) throws GeneralSecurityException {
         Cipher encryptCipher = Cipher.getInstance(RSA);
         encryptCipher.init(Cipher.ENCRYPT_MODE, publicKey);
-        byte[] cipherText = encryptCipher.doFinal(plainText.getBytes(UTF_8.INSTANCE));
+        byte[] cipherText = encryptCipher.doFinal(plainText.getBytes(StandardCharsets.UTF_8));
         return Base64.getEncoder().encodeToString(cipherText);
     }
 
@@ -63,7 +63,7 @@ public class RSAUtils {
     public static byte[] encryptToBytes(String plainText, PublicKey publicKey) throws GeneralSecurityException {
         Cipher encryptCipher = Cipher.getInstance(RSA);
         encryptCipher.init(Cipher.ENCRYPT_MODE, publicKey);
-        return encryptCipher.doFinal(plainText.getBytes(UTF_8.INSTANCE));
+        return encryptCipher.doFinal(plainText.getBytes(StandardCharsets.UTF_8));
     }
 
     /**
@@ -77,7 +77,7 @@ public class RSAUtils {
         byte[] bytes = Base64.getDecoder().decode(cipherText);
         Cipher decriptCipher = Cipher.getInstance(RSA);
         decriptCipher.init(Cipher.DECRYPT_MODE, privateKey);
-        return new String(decriptCipher.doFinal(bytes), UTF_8.INSTANCE);
+        return new String(decriptCipher.doFinal(bytes), StandardCharsets.UTF_8);
     }
 
     /**
@@ -90,7 +90,7 @@ public class RSAUtils {
     public static String decryptToStringFromBytes(byte[] cipherText, PrivateKey privateKey) throws GeneralSecurityException {
         Cipher decriptCipher = Cipher.getInstance(RSA);
         decriptCipher.init(Cipher.DECRYPT_MODE, privateKey);
-        return new String(decriptCipher.doFinal(cipherText), UTF_8.INSTANCE);
+        return new String(decriptCipher.doFinal(cipherText), StandardCharsets.UTF_8);
     }
 
     /**
@@ -131,7 +131,7 @@ public class RSAUtils {
     public static String sign(String plainText, PrivateKey privateKey) throws GeneralSecurityException {
         Signature privateSignature = Signature.getInstance(SHA256withRSA);
         privateSignature.initSign(privateKey);
-        privateSignature.update(plainText.getBytes(UTF_8.INSTANCE));
+        privateSignature.update(plainText.getBytes(StandardCharsets.UTF_8));
         byte[] signature = privateSignature.sign();
         return Base64.getEncoder().encodeToString(signature);
     }
@@ -147,7 +147,7 @@ public class RSAUtils {
     public static boolean verify(String plainText, String signature, PublicKey publicKey) throws GeneralSecurityException {
         Signature publicSignature = Signature.getInstance(SHA256withRSA);
         publicSignature.initVerify(publicKey);
-        publicSignature.update(plainText.getBytes(UTF_8.INSTANCE));
+        publicSignature.update(plainText.getBytes(StandardCharsets.UTF_8));
         byte[] signatureBytes = Base64.getDecoder().decode(signature);
         return publicSignature.verify(signatureBytes);
     }
