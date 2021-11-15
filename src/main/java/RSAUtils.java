@@ -40,6 +40,30 @@ public class RSAUtils {
     }
 
     /**
+     * 从bytes中读取RSA公钥对象
+     *
+     * @param pubKey 公钥二进制数据
+     * @return RSA 秘钥对对象
+     */
+    public static PublicKey readPublicKey(byte[] pubKey) throws GeneralSecurityException {
+        KeyFactory keyFactory = KeyFactory.getInstance(RSA);
+        X509EncodedKeySpec pubSpec = new X509EncodedKeySpec(pubKey);
+        return keyFactory.generatePublic(pubSpec);
+    }
+
+    /**
+     * 从bytes中读取RSA私钥对象
+     *
+     * @param priKey 私钥二进制数据
+     * @return RSA 秘钥对对象
+     */
+    public static PrivateKey readPrivateKey(byte[] priKey) throws GeneralSecurityException {
+        KeyFactory keyFactory = KeyFactory.getInstance(RSA);
+        PKCS8EncodedKeySpec priSpec = new PKCS8EncodedKeySpec(priKey);
+        return keyFactory.generatePrivate(priSpec);
+    }
+
+    /**
      * 使用公钥将明文字符串加密，以Base64格式返回
      *
      * @param plainText 被加密的明文字符串
