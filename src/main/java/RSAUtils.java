@@ -1,10 +1,19 @@
 
 import javax.crypto.Cipher;
+import java.io.BufferedReader;
+import java.io.File;
+import java.io.FileReader;
+import java.math.BigInteger;
 import java.nio.charset.StandardCharsets;
+import java.nio.file.Files;
+import java.nio.file.StandardOpenOption;
 import java.security.*;
 import java.security.spec.PKCS8EncodedKeySpec;
+import java.security.spec.RSAPrivateKeySpec;
+import java.security.spec.RSAPublicKeySpec;
 import java.security.spec.X509EncodedKeySpec;
 import java.util.Base64;
+import java.util.Optional;
 
 /**
  * @author JiangSenwei
@@ -12,6 +21,70 @@ import java.util.Base64;
 public class RSAUtils {
     public final static String RSA = "RSA";
     public final static String SHA256withRSA = "SHA256withRSA";
+    public final static int MAX_SIZE = 1024 * 1024 * 32;
+    public final static int DEFAULT_EXPONENT = 0x010001;
+
+    private final static String BEGIN_PUB_KEY = "-----BEGIN PUBLIC KEY-----";
+    private final static String END_PUB_KEY = "-----END PUBLIC KEY-----";
+    private final static String BEGIN_RSA_PRI_KEY = "-----BEGIN RSA PRIVATE KEY-----";
+    private final static String EDN_RSA_PRI_KEY = "-----BEGIN RSA PRIVATE KEY-----";
+    private final static String LF = "\n";
+
+
+    /**
+     * 生成随机RSA秘钥对并分别保存私钥到指定pem文件中
+     * 私钥中会保存modulus和exponent值，所以可以根据私钥计算出公钥
+     * 故无需再保存公钥文件
+     */
+    public static void generate2048PriKeyToPem(File pemFile) throws Exception {
+        KeyPair keyPair = generate2048SizeKeyPair();
+        savePriKeyToPem(pemFile,keyPair.getPrivate());
+    }
+
+    /**
+     * 保存私钥到指定pem文件中
+     */
+    public static void savePriKeyToPem(File pemFile,PrivateKey privateKey) throws Exception {
+        if (pemFile == null) {
+            throw new Exception("File Can Not Be <null>");
+        }
+
+        String base64PriKey = Base64.getEncoder().encodeToString(privateKey.getEncoded());
+
+        String priBuilder = BEGIN_RSA_PRI_KEY + LF +
+                each64byteAddLF(base64PriKey) +
+                LF +
+                EDN_RSA_PRI_KEY;
+
+        Files.writeString(pemFile.toPath(), priBuilder,
+                StandardOpenOption.CREATE,
+                StandardOpenOption.WRITE,
+                StandardOpenOption.TRUNCATE_EXISTING);
+
+    }
+
+    /**
+     * 保存公钥到指定pem文件中
+     */
+    public static void savePubKeyToPem(File pemFile,PublicKey publicKey) throws Exception {
+        if (pemFile == null) {
+            throw new Exception("File Can Not Be <null>");
+        }
+
+        String base64PubKey = Base64.getEncoder().encodeToString(publicKey.getEncoded());
+
+        String priBuilder = BEGIN_PUB_KEY + LF +
+                each64byteAddLF(base64PubKey) +
+                LF +
+                END_PUB_KEY;
+
+        Files.writeString(pemFile.toPath(), priBuilder,
+                StandardOpenOption.CREATE,
+                StandardOpenOption.WRITE,
+                StandardOpenOption.TRUNCATE_EXISTING);
+
+    }
+
 
     /**
      * 随机生成RSA秘钥对
@@ -24,6 +97,52 @@ public class RSAUtils {
         return generator.generateKeyPair();
     }
 
+    /**
+     * 从pem文件中读取RSA私钥对象，并计算出公钥，返回秘钥对
+     *
+     * @param pemFile 私钥pem文件
+     * @param exponent 计算公钥的指数值，默认为0x010001 (65537)
+     * @return RSA 秘钥对对象
+     */
+    public static KeyPair readKeyPairFromPem(File pemFile, BigInteger exponent) throws Exception {
+        if (pemFile == null || !pemFile.exists() || pemFile.isDirectory()) {
+            throw new Exception("File Does Not Exist");
+        }
+        if (pemFile.length() > MAX_SIZE) {
+            throw new Exception("File Is Too Large");
+        }
+        if (Files.isReadable(pemFile.toPath())) {
+            PrivateKey privateKey;
+            PublicKey publicKey;
+            KeyFactory keyFactory = KeyFactory.getInstance(RSA);
+            BufferedReader reader = new BufferedReader(new FileReader(pemFile));
+            StringBuilder builder = new StringBuilder();
+            String line;
+            while ((line = reader.readLine()) != null) {
+                if (line.length() > 5 && line.substring(0, 5).equals("-----")) {
+                    continue;
+                }
+                builder.append(line);
+            }
+            try {
+                byte[] rawBytes = Base64.getDecoder().decode(builder.toString());
+                PKCS8EncodedKeySpec priSpec = new PKCS8EncodedKeySpec(rawBytes);
+                privateKey = keyFactory.generatePrivate(priSpec);
+            } catch (Exception e) {
+                throw new Exception("Wrong Pem File. Failed To Parse RSA Private Key");
+            }
+            try {
+                RSAPrivateKeySpec priSpec = keyFactory.getKeySpec(privateKey, RSAPrivateKeySpec.class);
+                RSAPublicKeySpec pubSpec = new RSAPublicKeySpec(priSpec.getModulus(), Optional.ofNullable(exponent).orElse(BigInteger.valueOf(DEFAULT_EXPONENT)));
+                publicKey = keyFactory.generatePublic(pubSpec);
+            } catch (Exception e) {
+                throw new Exception("Fail To Compute Public Key");
+            }
+            return new KeyPair(publicKey, privateKey);
+        } else {
+            throw new Exception("UnReadable File");
+        }
+    }
 
     /**
      * 从bytes中读取RSA公钥和私钥返回秘钥对对象
@@ -148,7 +267,7 @@ public class RSAUtils {
     /**
      * 使用私钥签名明文，返回Base64格式的签名字符串
      *
-     * @param plainText 用于签名的明文
+     * @param plainText  用于签名的明文
      * @param privateKey 用于签名的私钥
      * @return Base64格式的签名字符串
      */
@@ -174,5 +293,23 @@ public class RSAUtils {
         publicSignature.update(plainText.getBytes(StandardCharsets.UTF_8));
         byte[] signatureBytes = Base64.getDecoder().decode(signature);
         return publicSignature.verify(signatureBytes);
+    }
+
+    private static String each64byteAddLF(String rawString) {
+        if (rawString.length() < 64) {
+            return rawString;
+        }
+        StringBuilder builder = new StringBuilder();
+        int times;
+        int index = 0;
+        for (times = 0; times < rawString.length() / 64; times++) {
+            builder.append(rawString, index, index + 64);
+            builder.append(LF);
+            index += 64;
+        }
+
+        builder.append(rawString, index, rawString.length());
+
+        return builder.toString();
     }
 }
