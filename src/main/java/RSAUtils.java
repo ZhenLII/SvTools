@@ -9,6 +9,8 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.StandardOpenOption;
 import java.security.*;
+import java.security.interfaces.RSAPrivateKey;
+import java.security.interfaces.RSAPublicKey;
 import java.security.spec.PKCS8EncodedKeySpec;
 import java.security.spec.RSAPrivateKeySpec;
 import java.security.spec.RSAPublicKeySpec;
@@ -24,7 +26,8 @@ public class RSAUtils {
     public final static String SHA256withRSA = "SHA256withRSA";
     public final static int MAX_SIZE = 1024 * 1024 * 32;
     public final static int DEFAULT_EXPONENT = 0x010001;
-
+    public final static int CYPHER_LENGTH = 2048;
+    public final static int TEXT_BLOCK_SIZE = 128;
     private final static String BEGIN_PUB_KEY = "-----BEGIN PUBLIC KEY-----";
     private final static String END_PUB_KEY = "-----END PUBLIC KEY-----";
     private final static String BEGIN_RSA_PRI_KEY = "-----BEGIN RSA PRIVATE KEY-----";
@@ -39,13 +42,13 @@ public class RSAUtils {
      */
     public static void generate2048PriKeyToPem(Path path) throws Exception {
         KeyPair keyPair = generate2048SizeKeyPair();
-        savePriKeyToPem(path,keyPair.getPrivate());
+        savePriKeyToPem(path, keyPair.getPrivate());
     }
 
     /**
      * 保存私钥到指定pem文件中
      */
-    public static void savePriKeyToPem(Path pemPath,PrivateKey privateKey) throws Exception {
+    public static void savePriKeyToPem(Path pemPath, PrivateKey privateKey) throws Exception {
         File pemFile;
         if (pemPath == null) {
             throw new Exception("File Can Not Be <null>");
@@ -69,7 +72,7 @@ public class RSAUtils {
     /**
      * 保存公钥到指定pem文件中
      */
-    public static void savePubKeyToPem(Path pemPath,PublicKey publicKey) throws Exception {
+    public static void savePubKeyToPem(Path pemPath, PublicKey publicKey) throws Exception {
         File pemFile;
         if (pemPath == null) {
             throw new Exception("File Can Not Be <null>");
@@ -97,14 +100,14 @@ public class RSAUtils {
      */
     public static KeyPair generate2048SizeKeyPair() throws NoSuchAlgorithmException {
         KeyPairGenerator generator = KeyPairGenerator.getInstance(RSA);
-        generator.initialize(2048, new SecureRandom());
+        generator.initialize(CYPHER_LENGTH, new SecureRandom());
         return generator.generateKeyPair();
     }
 
     /**
      * 从pem文件中读取RSA私钥对象，并计算出公钥，返回秘钥对
      *
-     * @param path 私钥pem文件路径
+     * @param path     私钥pem文件路径
      * @param exponent 计算公钥的指数值，默认为0x010001 (65537)
      * @return RSA 秘钥对对象
      */
@@ -188,17 +191,53 @@ public class RSAUtils {
     }
 
     /**
+     * 使用公钥将明文二进制数据加密，返回加密后的二进制数据
+     * 如果明文长度大于秘钥长度，将会以 128byte大小 分块加密，要求秘钥长度必须大于2048bit(256byte)
+     *
+     * @param textBytes 需要被加密的明文字符串
+     * @param publicKey 用于加密的公钥
+     * @return 加密后的二进制数据
+     */
+    public static byte[] encrypt(byte[] textBytes, PublicKey publicKey) throws Exception {
+        int bitLength = checkPublicKey(publicKey);
+        int cipherBlockSize = bitLength / 8;
+        int cipherLength = ((textBytes.length / TEXT_BLOCK_SIZE) + 1) * cipherBlockSize;
+        byte[] cipherBytes = new byte[cipherLength];
+        Cipher encryptCipher = Cipher.getInstance(RSA);
+        encryptCipher.init(Cipher.ENCRYPT_MODE, publicKey);
+        if (textBytes.length > TEXT_BLOCK_SIZE) {
+            int times;
+            int plainIndex = 0;
+            int cipherIndex = 0;
+            for (times = 0; times < textBytes.length / TEXT_BLOCK_SIZE; times++) {
+                byte[] tmp = new byte[TEXT_BLOCK_SIZE];
+                System.arraycopy(textBytes, plainIndex, tmp, 0, TEXT_BLOCK_SIZE);
+                byte[] cipherTmp = encryptCipher.doFinal(tmp);
+                System.arraycopy(cipherTmp, 0, cipherBytes, cipherIndex, cipherBlockSize);
+                plainIndex += TEXT_BLOCK_SIZE;
+                cipherIndex += cipherBlockSize;
+            }
+            byte[] tmp = new byte[textBytes.length - plainIndex];
+            System.arraycopy(textBytes, plainIndex, tmp, 0, textBytes.length - plainIndex);
+            byte[] cipherTmp = encryptCipher.doFinal(tmp);
+            System.arraycopy(cipherTmp, 0, cipherBytes, cipherIndex, cipherBlockSize);
+        } else {
+            cipherBytes = encryptCipher.doFinal(textBytes);
+        }
+        return cipherBytes;
+    }
+
+
+    /**
      * 使用公钥将明文字符串加密，以Base64格式返回
      *
      * @param plainText 被加密的明文字符串
      * @param publicKey 用于加密的公钥
      * @return 加密后采用Base64编码的字符串
      */
-    public static String encryptToBase64(String plainText, PublicKey publicKey) throws GeneralSecurityException {
-        Cipher encryptCipher = Cipher.getInstance(RSA);
-        encryptCipher.init(Cipher.ENCRYPT_MODE, publicKey);
-        byte[] cipherText = encryptCipher.doFinal(plainText.getBytes(StandardCharsets.UTF_8));
-        return Base64.getEncoder().encodeToString(cipherText);
+    public static String encryptToBase64(String plainText, PublicKey publicKey) throws Exception {
+        byte[] textBytes = plainText.getBytes(StandardCharsets.UTF_8);
+        return Base64.getEncoder().encodeToString(encrypt(textBytes, publicKey));
     }
 
     /**
@@ -208,10 +247,47 @@ public class RSAUtils {
      * @param publicKey 用于加密的公钥
      * @return 加密后的二进制数据
      */
-    public static byte[] encryptToBytes(String plainText, PublicKey publicKey) throws GeneralSecurityException {
-        Cipher encryptCipher = Cipher.getInstance(RSA);
-        encryptCipher.init(Cipher.ENCRYPT_MODE, publicKey);
-        return encryptCipher.doFinal(plainText.getBytes(StandardCharsets.UTF_8));
+    public static byte[] encryptToBytes(String plainText, PublicKey publicKey) throws Exception {
+        byte[] textBytes = plainText.getBytes(StandardCharsets.UTF_8);
+        return encrypt(textBytes, publicKey);
+    }
+
+
+    /**
+     * 使用私钥将二进制的密文字符串解密，返回解密后的二进制数据
+     *
+     * @param cipherBytes 加密后的密文，二进制数据
+     * @param privateKey  用于解密的私钥
+     * @return 解密后的二进制数据
+     */
+    public static byte[] decrypt(byte[] cipherBytes, PrivateKey privateKey) throws Exception {
+        int bitLength = checkPrivateKey(privateKey);
+        int cipherBlockSize = bitLength / 8;
+        if (cipherBytes.length % cipherBlockSize != 0) {
+            throw new Exception("Encrypted Data Length Error. Must be an integer multiple of the cypher length.");
+        }
+        Cipher decriptCipher = Cipher.getInstance(RSA);
+        decriptCipher.init(Cipher.DECRYPT_MODE, privateKey);
+        byte[] plainBytes;
+        if (cipherBytes.length / cipherBlockSize > 1) {
+            int cipherIndex = 0;
+            int times;
+            plainBytes = new byte[0];
+            for (times = 0; times < cipherBytes.length / cipherBlockSize; times++) {
+                byte[] tmp = new byte[cipherBlockSize];
+                System.arraycopy(cipherBytes, cipherIndex, tmp, 0, cipherBlockSize);
+                byte[] plainTmp = decriptCipher.doFinal(tmp);
+                byte[] newPlainBytes = new byte[plainBytes.length + plainTmp.length];
+                System.arraycopy(plainBytes, 0, newPlainBytes, 0, plainBytes.length);
+                System.arraycopy(plainTmp, 0, newPlainBytes, plainBytes.length, plainTmp.length);
+                plainBytes = newPlainBytes;
+                cipherIndex += cipherBlockSize;
+            }
+        } else {
+            plainBytes = decriptCipher.doFinal(cipherBytes);
+        }
+
+        return plainBytes;
     }
 
     /**
@@ -221,11 +297,9 @@ public class RSAUtils {
      * @param privateKey 用于解密的私钥
      * @return 解密后的明文字符串
      */
-    public static String decryptToStringFromBase64(String cipherText, PrivateKey privateKey) throws GeneralSecurityException {
+    public static String decryptToStringFromBase64(String cipherText, PrivateKey privateKey) throws Exception {
         byte[] bytes = Base64.getDecoder().decode(cipherText);
-        Cipher decriptCipher = Cipher.getInstance(RSA);
-        decriptCipher.init(Cipher.DECRYPT_MODE, privateKey);
-        return new String(decriptCipher.doFinal(bytes), StandardCharsets.UTF_8);
+        return new String(decrypt(bytes, privateKey), StandardCharsets.UTF_8);
     }
 
     /**
@@ -235,10 +309,8 @@ public class RSAUtils {
      * @param privateKey 用于解密的私钥
      * @return 解密后的明文字符串
      */
-    public static String decryptToStringFromBytes(byte[] cipherText, PrivateKey privateKey) throws GeneralSecurityException {
-        Cipher decriptCipher = Cipher.getInstance(RSA);
-        decriptCipher.init(Cipher.DECRYPT_MODE, privateKey);
-        return new String(decriptCipher.doFinal(cipherText), StandardCharsets.UTF_8);
+    public static String decryptToStringFromBytes(byte[] cipherText, PrivateKey privateKey) throws Exception {
+        return new String(decrypt(cipherText, privateKey), StandardCharsets.UTF_8);
     }
 
     /**
@@ -248,24 +320,9 @@ public class RSAUtils {
      * @param privateKey 用于解密的私钥
      * @return 解密后的二进制数据
      */
-    public static byte[] decryptToBytesFromBase64(String cipherText, PrivateKey privateKey) throws GeneralSecurityException {
+    public static byte[] decryptToBytesFromBase64(String cipherText, PrivateKey privateKey) throws Exception {
         byte[] bytes = Base64.getDecoder().decode(cipherText);
-        Cipher decriptCipher = Cipher.getInstance(RSA);
-        decriptCipher.init(Cipher.DECRYPT_MODE, privateKey);
-        return decriptCipher.doFinal(bytes);
-    }
-
-    /**
-     * 使用私钥将二进制的密文字符串解密，返回解密后的二进制数据
-     *
-     * @param cipherText 加密后的密文，二进制数据
-     * @param privateKey 用于解密的私钥
-     * @return 解密后的二进制数据
-     */
-    public static byte[] decryptToBytesFromBytes(byte[] cipherText, PrivateKey privateKey) throws GeneralSecurityException {
-        Cipher decriptCipher = Cipher.getInstance(RSA);
-        decriptCipher.init(Cipher.DECRYPT_MODE, privateKey);
-        return decriptCipher.doFinal(cipherText);
+        return decrypt(bytes, privateKey);
     }
 
 
@@ -298,6 +355,28 @@ public class RSAUtils {
         publicSignature.update(plainText.getBytes(StandardCharsets.UTF_8));
         byte[] signatureBytes = Base64.getDecoder().decode(signature);
         return publicSignature.verify(signatureBytes);
+    }
+
+    private static int checkPrivateKey(PrivateKey privateKey) throws Exception {
+        if (!(privateKey instanceof RSAPrivateKey)) {
+            throw new Exception("Private Key Must be RSA Private Key");
+        }
+        int bitLength = ((RSAPrivateKey) privateKey).getModulus().bitLength();
+        if (bitLength < CYPHER_LENGTH) {
+            throw new Exception("RSA Key Length Is Too Short. At Least 2048 bits.");
+        }
+        return bitLength;
+    }
+
+    private static int checkPublicKey(PublicKey publicKey) throws Exception {
+        if (!(publicKey instanceof RSAPublicKey)) {
+            throw new Exception("Public Key Must be RSA Public Key");
+        }
+        int bitLength = ((RSAPublicKey) publicKey).getModulus().bitLength();
+        if (bitLength < CYPHER_LENGTH) {
+            throw new Exception("RSA Key Length Is Too Short. At Least 2048 bits.");
+        }
+        return bitLength;
     }
 
     private static String each64byteAddLF(String rawString) {

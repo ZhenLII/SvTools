@@ -21,8 +21,8 @@ public class RSAUtilsTest {
             File pri = new File("pri.pem");
             File pub = new File("pub.pem");
             KeyPair keyPair = RSAUtils.generate2048SizeKeyPair();
-            RSAUtils.savePriKeyToPem(pri.toPath(),keyPair.getPrivate());
-            RSAUtils.savePubKeyToPem(pub.toPath(),keyPair.getPublic());
+            RSAUtils.savePriKeyToPem(pri.toPath(), keyPair.getPrivate());
+            RSAUtils.savePubKeyToPem(pub.toPath(), keyPair.getPublic());
         } catch (Exception e) {
             e.printStackTrace();
             Assert.fail(e.getMessage());
@@ -38,7 +38,7 @@ public class RSAUtilsTest {
             File priPemFile = new File(priUrl.toURI());
             File pubPemFile = new File(pubUrl.toURI());
             // 从私钥文件解析出秘钥对，使用默认指数
-            KeyPair keyPair = RSAUtils.readKeyPairFromPem(priPemFile.toPath(),null);
+            KeyPair keyPair = RSAUtils.readKeyPairFromPem(priPemFile.toPath(), null);
 
             // 读取公钥文件
             BufferedReader reader = new BufferedReader(new FileReader(pubPemFile));
@@ -55,6 +55,30 @@ public class RSAUtilsTest {
             // 对比从私钥中计算的公钥，和文件中的公钥
             Assert.assertArrayEquals(rawBytes, keyPair.getPublic().getEncoded());
 
+        } catch (Exception e) {
+            e.printStackTrace();
+            Assert.fail(e.getMessage());
+        }
+    }
+
+    @Test
+    public void testBlockEncryptAndDecript() {
+        KeyPair keyPair;
+
+        try {
+            keyPair = RSAUtils.generate2048SizeKeyPair();
+            String base64PubKey = Base64.getEncoder().encodeToString(keyPair.getPublic().getEncoded());
+            String plainText = "8205dba0-4a5c-4e25-87ff-92fd76c07f371995b0d3-2660-4ae1-bc09-4ae8adf8e060" +
+                    "_TEST_MESSAGE:PUB_KEY = " +
+                    "MIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEAttyKKe8zaGmfB1g9ygQfGN" +
+                    "wGTKxEJOQwCcStfd7rwYvyC/sK6vn/Bh9jSl5uVRlU4PLaJhx0LUKkQUpAQ8u1ytLXBUfPqIL/wOY35s/" +
+                    "o3wSlg5fPmx8Xrq4nhbAj68kn59rgkd5RkSPBGerioIRnwGv0EAMSJXNAZBCT/UUTCoIpBIbNdkM+35eYr" +
+                    "oRZS3WEirvNzWCaH2+abJ7miM3RAKQSKn91s5l4sddLfQsPj6f6W7oUwM35z1Ny18+4boDIeMlGBHAXyzgz" +
+                    "OPDhC10qY3cCCAx1LLIczLn6HjUT3E22+wzqpu4bx1+gRZk2ij8rGLankbGxWQZPLADK/x2aOwIDAQAB";
+            System.out.println(plainText.getBytes().length);
+            String cipherText = RSAUtils.encryptToBase64(plainText, keyPair.getPublic());
+            String decryptText = RSAUtils.decryptToStringFromBase64(cipherText, keyPair.getPrivate());
+            Assert.assertEquals(plainText, decryptText);
         } catch (Exception e) {
             e.printStackTrace();
             Assert.fail(e.getMessage());
@@ -98,15 +122,15 @@ public class RSAUtilsTest {
             byte[] cipherBytes = RSAUtils.encryptToBytes(plainText, keyPair.getPublic());
 
             String strAfterDecript1 = RSAUtils.decryptToStringFromBase64(cipherText, keyPair.getPrivate());
-            String strAfterDecript2 = RSAUtils.decryptToStringFromBytes(cipherBytes,keyPair.getPrivate());
+            String strAfterDecript2 = RSAUtils.decryptToStringFromBytes(cipherBytes, keyPair.getPrivate());
             byte[] bytesAfterDecript1 = RSAUtils.decryptToBytesFromBase64(cipherText, keyPair.getPrivate());
-            byte[] bytesAfterDecript2 = RSAUtils.decryptToBytesFromBytes(cipherBytes, keyPair.getPrivate());
+            byte[] bytesAfterDecript2 = RSAUtils.decrypt(cipherBytes, keyPair.getPrivate());
 
             Assert.assertEquals(plainText, strAfterDecript1);
             Assert.assertEquals(plainText, strAfterDecript2);
             Assert.assertArrayEquals(plainBytes, bytesAfterDecript1);
             Assert.assertArrayEquals(plainBytes, bytesAfterDecript2);
-        } catch (GeneralSecurityException e) {
+        } catch (Exception e) {
             e.printStackTrace();
             Assert.fail(e.getMessage());
         }
