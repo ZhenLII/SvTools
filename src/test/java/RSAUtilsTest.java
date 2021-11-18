@@ -21,8 +21,8 @@ public class RSAUtilsTest {
             File pri = new File("pri.pem");
             File pub = new File("pub.pem");
             KeyPair keyPair = RSAUtils.generate2048SizeKeyPair();
-            RSAUtils.savePriKeyToPem(pri,keyPair.getPrivate());
-            RSAUtils.savePubKeyToPem(pub,keyPair.getPublic());
+            RSAUtils.savePriKeyToPem(pri.toPath(),keyPair.getPrivate());
+            RSAUtils.savePubKeyToPem(pub.toPath(),keyPair.getPublic());
         } catch (Exception e) {
             e.printStackTrace();
             Assert.fail(e.getMessage());
@@ -38,7 +38,7 @@ public class RSAUtilsTest {
             File priPemFile = new File(priUrl.toURI());
             File pubPemFile = new File(pubUrl.toURI());
             // 从私钥文件解析出秘钥对，使用默认指数
-            KeyPair keyPair = RSAUtils.readKeyPairFromPem(priPemFile,null);
+            KeyPair keyPair = RSAUtils.readKeyPairFromPem(priPemFile.toPath(),null);
 
             // 读取公钥文件
             BufferedReader reader = new BufferedReader(new FileReader(pubPemFile));
