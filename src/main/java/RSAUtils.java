@@ -6,6 +6,7 @@ import java.io.FileReader;
 import java.math.BigInteger;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
+import java.nio.file.Path;
 import java.nio.file.StandardOpenOption;
 import java.security.*;
 import java.security.spec.PKCS8EncodedKeySpec;
@@ -36,18 +37,20 @@ public class RSAUtils {
      * 私钥中会保存modulus和exponent值，所以可以根据私钥计算出公钥
      * 故无需再保存公钥文件
      */
-    public static void generate2048PriKeyToPem(File pemFile) throws Exception {
+    public static void generate2048PriKeyToPem(Path path) throws Exception {
         KeyPair keyPair = generate2048SizeKeyPair();
-        savePriKeyToPem(pemFile,keyPair.getPrivate());
+        savePriKeyToPem(path,keyPair.getPrivate());
     }
 
     /**
      * 保存私钥到指定pem文件中
      */
-    public static void savePriKeyToPem(File pemFile,PrivateKey privateKey) throws Exception {
-        if (pemFile == null) {
+    public static void savePriKeyToPem(Path pemPath,PrivateKey privateKey) throws Exception {
+        File pemFile;
+        if (pemPath == null) {
             throw new Exception("File Can Not Be <null>");
         }
+        pemFile = pemPath.toFile();
 
         String base64PriKey = Base64.getEncoder().encodeToString(privateKey.getEncoded());
 
@@ -66,11 +69,12 @@ public class RSAUtils {
     /**
      * 保存公钥到指定pem文件中
      */
-    public static void savePubKeyToPem(File pemFile,PublicKey publicKey) throws Exception {
-        if (pemFile == null) {
+    public static void savePubKeyToPem(Path pemPath,PublicKey publicKey) throws Exception {
+        File pemFile;
+        if (pemPath == null) {
             throw new Exception("File Can Not Be <null>");
         }
-
+        pemFile = pemPath.toFile();
         String base64PubKey = Base64.getEncoder().encodeToString(publicKey.getEncoded());
 
         String priBuilder = BEGIN_PUB_KEY + LF +
@@ -100,12 +104,13 @@ public class RSAUtils {
     /**
      * 从pem文件中读取RSA私钥对象，并计算出公钥，返回秘钥对
      *
-     * @param pemFile 私钥pem文件
+     * @param path 私钥pem文件路径
      * @param exponent 计算公钥的指数值，默认为0x010001 (65537)
      * @return RSA 秘钥对对象
      */
-    public static KeyPair readKeyPairFromPem(File pemFile, BigInteger exponent) throws Exception {
-        if (pemFile == null || !pemFile.exists() || pemFile.isDirectory()) {
+    public static KeyPair readKeyPairFromPem(Path path, BigInteger exponent) throws Exception {
+        File pemFile;
+        if (path == null || !(pemFile = path.toFile()).exists() || pemFile.isDirectory()) {
             throw new Exception("File Does Not Exist");
         }
         if (pemFile.length() > MAX_SIZE) {
