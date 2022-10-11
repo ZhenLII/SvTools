@@ -138,4 +138,18 @@ public class ByteUtils {
         Matcher matcher = pattern.matcher(string);
         return matcher.matches();
     }
+
+    public static int trueFormCompare(byte x, byte y) {
+        if(x == y) return 0;
+        int xSign = (x& 0x80) >>> 7; // 0 or 1
+        int ySign = (y & 0x80) >>> 7; // 0 or 1
+        if((xSign ^ ySign) == 1) {
+            // 如果 x y 异号，小于0的数符号位为1，原码更大
+            return x < 0 ? 1 : -1;
+        } else {
+            // 如果 x y 同号
+            return x > y ? 1 : -1;
+        }
+
+    }
 }
