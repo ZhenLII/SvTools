@@ -29,6 +29,16 @@ public abstract class AbstractUrlParameter {
 
     public String buildUrlParameters(String baseUrl) {
         String parameters = "";
+        Map<String,String> kvs = buildParamMap();
+        if(!kvs.isEmpty()) {
+            parameters += SymbolConstants.QUESTION;
+            parameters += kvs.entrySet().stream().map(e -> e.getKey()+SymbolConstants.EQUAL+e.getValue()).collect(Collectors.joining(SymbolConstants.AND));
+        }
+        return baseUrl + parameters;
+    }
+
+    public Map<String,String> buildParamMap() {
+
         Class<?> type = this.getClass();
         List<Field> fieldList = new ArrayList<>();
         // 从最终的类开始获取属性， 不断向父类获取属性，将子类父类的所有属性放到同一个List中
@@ -36,7 +46,6 @@ public abstract class AbstractUrlParameter {
             fieldList.addAll(new ArrayList<>(Arrays.asList(type.getDeclaredFields())));
             type = type.getSuperclass();
         }
-
         Map<String,String> kvs = new HashMap<>();
         try {
             for(Field field : fieldList) {
@@ -54,21 +63,16 @@ public abstract class AbstractUrlParameter {
                         throw new IllegalArgumentException("Duplicate parameter name");
                     }
                     // 获得参数值
-                    String value = field.get(this) == null ? null : field.get(this).toString();
-                    kvs.put(paramName,value);
+                    if(field.get(this) != null) {
+                        kvs.put(paramName,field.get(this).toString());
+                    }
                 }
             }
         } catch (NoSuchMethodException | IllegalAccessException | InvocationTargetException e) {
             e.printStackTrace();
             throw new RuntimeException("Build Error");
         }
-        if(!kvs.isEmpty()) {
-            parameters += SymbolConstants.QUESTION;
-            parameters += kvs.entrySet().stream().map(e -> e.getKey()+SymbolConstants.EQUAL+e.getValue()).collect(Collectors.joining(SymbolConstants.AND));
-        }
-
-        return baseUrl + parameters;
-
+        return kvs;
     }
 
     public void setBaseUrl(String baseUrl) {
