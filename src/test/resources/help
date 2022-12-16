@@ -1,0 +1,29 @@
+    Parameters: (若为 X=Y这种形式，表示参数需要值，大括号中的值表示默认值,[-]表示无缩写形式)
+
+    --sn_prefix={MOCK_SN_}      [-s] 模拟设备SN前缀，基于数量在前缀后补充数字作为模拟设备SN
+
+    --connect                   [-c] 发起连接
+
+    --keepalive                 [-k] 设备保活
+
+    --num={1}                   [-n] 模拟设备数量，最多10000台
+
+    --delay={10}                [-d] 每个模拟设备开启的随机时间，在该指定时间内开启，单位:秒
+
+    --host={127.0.0.1}          [-h] 目的地址
+
+    --port={162}                [-p] 目的端口
+
+    --redis                     [-r] 连接到redis查看连接情况
+
+    --redis_port={6379}         [-] redis端口
+
+    --redis_password={123456}   [-] redis密码
+
+    Example:
+            1. --host=127.0.0.1 --port=162 -n100 -k -c
+            2. --delay=30 -r -redis_port=6379 -redis_password=123 -k
+
+
+
+
